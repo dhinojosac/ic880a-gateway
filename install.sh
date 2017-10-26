@@ -11,12 +11,12 @@ fi
 VERSION="master"
 if [[ $1 != "" ]]; then VERSION=$1; fi
 
-echo "The Things Network Gateway installer"
+echo "Manglar Gateway installer"
 echo "Version $VERSION"
 
 # Update the gateway installer to the correct branch (defaults to master)
 echo "Updating installer files..."
-OLD_HEAD=$(git rev-parse HEAD)
+OLD_HEAD=$(git rev-parse HEAD)  #parse revision
 git fetch
 git checkout -q $VERSION
 git pull
@@ -53,14 +53,14 @@ read -r -p "Do you want to use remote settings file? [y/N]" response
 response=${response,,} # tolower
 
 if [[ $response =~ ^(yes|y) ]]; then
-    NEW_HOSTNAME="ttn-gateway"
+    NEW_HOSTNAME="manglar-gateway"
     REMOTE_CONFIG=true
 else
-    printf "       Host name [ttn-gateway]:"
+    printf "       Host name [manglar-gateway]:"
     read NEW_HOSTNAME
-    if [[ $NEW_HOSTNAME == "" ]]; then NEW_HOSTNAME="ttn-gateway"; fi
+    if [[ $NEW_HOSTNAME == "" ]]; then NEW_HOSTNAME="manglar-gateway"; fi
 
-    printf "       Descriptive name [ttn-ic880a]:"
+    printf "       Descriptive name [manglar-ic880a]:"
     read GATEWAY_NAME
     if [[ $GATEWAY_NAME == "" ]]; then GATEWAY_NAME="ttn-ic880a"; fi
 
@@ -96,7 +96,7 @@ echo "Installing dependencies..."
 apt-get install swig libftdi-dev python-dev
 
 # Install LoRaWAN packet forwarder repositories
-INSTALL_DIR="/opt/ttn-gateway"
+INSTALL_DIR="/opt/manglar-gateway"
 if [ ! -d "$INSTALL_DIR" ]; then mkdir $INSTALL_DIR; fi
 pushd $INSTALL_DIR
 
@@ -128,8 +128,10 @@ else
     git reset --hard
 fi
 
+# copy udev rules for FTDI from repository
 cp ./libloragw/99-libftdi.rules /etc/udev/rules.d/99-libftdi.rules
 
+# sed 'stream editor', change usins s/old/new/g  in same file, g is global replacement (no only the first ocurrence)
 sed -i -e 's/CFG_SPI= native/CFG_SPI= ftdi/g' ./libloragw/library.cfg
 sed -i -e 's/PLATFORM= kerlink/PLATFORM= lorank/g' ./libloragw/library.cfg
 sed -i -e 's/ATTRS{idProduct}=="6010"/ATTRS{idProduct}=="6014"/g' /etc/udev/rules.d/99-libftdi.rules
@@ -156,14 +158,18 @@ popd
 # Symlink poly packet forwarder
 if [ ! -d bin ]; then mkdir bin; fi
 if [ -f ./bin/poly_pkt_fwd ]; then rm ./bin/poly_pkt_fwd; fi
+# create symlink
 ln -s $INSTALL_DIR/packet_forwarder/poly_pkt_fwd/poly_pkt_fwd ./bin/poly_pkt_fwd
+# copy force
 cp -f ./packet_forwarder/poly_pkt_fwd/global_conf.json ./bin/global_conf.json
 
 LOCAL_CONFIG_FILE=$INSTALL_DIR/bin/local_conf.json
 
 # Remove old config file
+# Check if exists file
 if [ -e $LOCAL_CONFIG_FILE ]; then rm $LOCAL_CONFIG_FILE; fi;
 
+# remote config
 if [ "$REMOTE_CONFIG" = true ] ; then
     # Get remote configuration repo
     if [ ! -d gateway-remote-config ]; then
